@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sopa de Letras en Español (Horizontal y Vertical)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
+    #word-search-container {
+      display: grid;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+    }
+    .cell {
+      width: 40px; /* Slightly larger for touch */
+      height: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #eee;
+      font-size: 1.4em; /* Slightly larger font for touch */
+      user-select: none;
+      -webkit-tap-highlight-color: transparent; /* Remove tap highlight on iOS */
+    }
+    .selected {
+      background-color: lightblue;
+    }
+    #word-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    .found {
+      text-decoration: line-through;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+<h1>Sopa de Letras en Español (Horizontal y Vertical)</h1>
+<div id="word-search-container"></div>
+<div>
+  <h2>Palabras a Encontrar:</h2>
+  <ul id="word-list"></ul>
+</div>
+<p id="message"></p>
+
+<script>
+  const wordSearchContainer = document.getElementById('word-search-container');
+  const wordListContainer = document.getElementById('word-list');
+  const messageElement = document.getElementById('message');
+
+  const words = ["CASA", "PERRO", "SOL", "LUNA", "FLOR", "ARBOL"]; // Palabras en español
+  const gridSize = 12; // Tamaño de la cuadrícula
+  let grid = [];
+  let selectedCells = [];
+  let foundWords = [];
+
+  function generateGrid() {
+    grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(''));
+    placeWords();
+    fillEmptyCells();
+    displayGrid();
+    displayWordList();
+  }
+
+  function placeWords() {
+    words.forEach(word => {
+      let placed = false;
+      while (!placed) {
+        const row = Math.floor(Math.random() * gridSize);
+        const col = Math.floor(Math.random() * gridSize);
+        const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+
+        if (canPlaceWord(word, row, col, orientation)) {
+          placeWord(word, row, col, orientation);
+          placed = true;
+        }
+      }
+    });
+  }
+
+  function canPlaceWord(word, row, col, orientation) {
+    const len = word.length;
+    if (orientation === 'horizontal') {
+      if (col + len > gridSize) return false;
+      for (let i = 0; i < len; i++) {
+        if (grid[row][col + i] !== '' && grid[row][col + i] !== word[i]) {
+          return false;
+        }
+      }
+    } else { // vertical
+      if (row + len > gridSize) return false;
+      for (let i = 0; i < len; i++) {
+        if (grid[row + i][col] !== '' && grid[row + i][col] !== word[i]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function placeWord(word, row, col, orientation) {
+    const len = word.length;
+    if (orientation === 'horizontal') {
+      for (let i = 0; i < len; i++) {
+        grid[row][col + i] = word[i];
+      }
+    } else { // vertical
+      for (let i = 0; i < len; i++) {
+        grid[row + i][col] = word[i];
+      }
+    }
+  }
+
+  function fillEmptyCells() {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // NO Incluye la Ñ
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        if (grid[i][j] === '') {
+          grid[i][j] = alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+      }
+    }
+  }
+
+  function displayGrid() {
+    wordSearchContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+    wordSearchContainer.innerHTML = '';
+    grid.forEach((row, rowIndex) => {
+      row.forEach((letter, colIndex) => {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.textContent = letter;
+        cell.dataset.row = rowIndex;
+        cell.dataset.col = colIndex;
+        cell.addEventListener('touchstart', startSelection);
+        cell.addEventListener('touchmove', continueSelection);
+        cell.addEventListener('touchend', endSelection);
+        wordSearchContainer.appendChild(cell);
+      });
+    });
+  }
+
+  function displayWordList() {
+    wordListContainer.innerHTML = '';
+    words.forEach(word => {
+      const listItem = document.createElement('li');
+      listItem.textContent = word;
+      wordListContainer.appendChild(listItem);
+    });
+  }
+
+  let isSelecting = false;
+  let startCell = null;
+
+  function startSelection(e) {
+    if (e.touches.length !== 1) return; // Only handle single touch
+    isSelecting = true;
+    startCell = e.target;
+    if (!startCell.classList.contains('cell')) return;
+    e.preventDefault(); // Prevent scrolling during selection
+    if (startCell.classList.contains('selected')) {
+      return; // Don't restart selection on a selected cell
+    }
+    startCell.classList.add('selected');
+    const row = parseInt(startCell.dataset.row);
+    const col = parseInt(startCell.dataset.col);
+    selectedCells = [{ row: row, col: col, element: startCell }];
+  }
+
+  function continueSelection(e) {
+    if (!isSelecting || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    if (!target || !target.classList.contains('cell')) return;
+    e.preventDefault(); // Prevent scrolling during selection
+
+    const currentCell = target;
+    const currentRow = parseInt(currentCell.dataset.row);
+    const currentCol = parseInt(currentCell.dataset.col);
+    const startRow = parseInt(startCell.dataset.row);
+    const startCol = parseInt(startCell.dataset.col);
+
+    const lastSelected = selectedCells[selectedCells.length - 1];
+    const rowDiff = currentRow - lastSelected.row;
+    const colDiff = currentCol - lastSelected.col;
+
+    // Only allow horizontal or vertical selection
+    if ((Math.abs(rowDiff) <= 1 && colDiff === 0) || (rowDiff === 0 && Math.abs(colDiff) <= 1)) {
+      if (!selectedCells.some(cell => cell.row === currentRow && cell.col === currentCol)) {
+        currentCell.classList.add('selected');
+        selectedCells.push({ row: currentRow, col: currentCol, element: currentCell });
+      }
+    }
+  }
+
+  function endSelection(e) {
+    if (!isSelecting || selectedCells.length === 0) {
+      clearSelection();
+      return;
+    }
+    isSelecting = false;
+    e.preventDefault(); // Prevent any lingering touch events
+
+    // Check if the selection is strictly horizontal or vertical
+    const isHorizontal = selectedCells.every((cell, index, arr) => index === 0 || cell.row === arr[0].row);
+    const isVertical = selectedCells.every((cell, index, arr) => index === 0 || cell.col === arr[0].col);
+
+    if (isHorizontal || isVertical) {
+      const selectedWord = selectedCells.map(cell => grid[cell.row][cell.col]).join('');
+
+      if (words.includes(selectedWord)) {
+        if (!foundWords.includes(selectedWord)) {
+          foundWords.push(selectedWord);
+          messageElement.textContent = `¡Encontraste la palabra: ${selectedWord}!`;
+          selectedCells.forEach(cell => cell.element.classList.add('found'));
+          updateWordListDisplay(selectedWord);
+          if (foundWords.length === words.length) {
+            messageElement.textContent = "¡Felicidades! ¡Encontraste todas las palabras!";
+          }
+        } else {
+          messageElement.textContent = `Ya encontraste la palabra: ${selectedWord}.`;
+          clearSelection();
+        }
+      } else {
+        messageElement.textContent = `"${selectedWord}" no es una de las palabras.`;
+        clearSelection();
+      }
+    } else {
+      messageElement.textContent = "La selección debe ser horizontal o vertical.";
+      clearSelection();
+    }
+  }
+
+  function clearSelection() {
+    selectedCells.forEach(cell => cell.element.classList.remove('selected'));
+    selectedCells = [];
+    startCell = null;
+  }
+
+  function updateWordListDisplay(foundWord) {
+    const wordListItems = wordListContainer.querySelectorAll('li');
+    wordListItems.forEach(item => {
+      if (item.textContent === foundWord && !item.classList.contains('found')) {
+        item.classList.add('found');
+      }
+    });
+  }
+
+  // Prevent default touch drag behavior
+  wordSearchContainer.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent scrolling while touching grid
+  }, { passive: false }); // Passive false is needed to prevent default
+
+  generateGrid();
+</script>
+</body>
+</html>
